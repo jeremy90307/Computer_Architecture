@@ -28,17 +28,20 @@ float fp32_to_bf16(float x)
         *p &= (*p - 1);
     }
     
-    return (float)count;
+    return count;
 }
 int main()
 {
     int count = 0;
-    float a;
-    a = 2.312500;
-    count = (float) fp32_to_bf16(a);
-    printf("%lf��%d�Ӧ줸��1\n\n", a, count);
+    float a = 1.200000, b = 1.203125, c = 2.312500;
 
+    count = (float)fp32_to_bf16(a);
+    printf("The number %lf has %d bits set to 1.\n", a, count);
+    count = (float)fp32_to_bf16(b);
+    printf("The number %lf has %d bits set to 1.\n", b, count);
+    count = (float)fp32_to_bf16(c);
+    printf("The number %lf has %d bits set to 1.\n", c, count);
+    
     system("pause");
     return 0;
 }
-
