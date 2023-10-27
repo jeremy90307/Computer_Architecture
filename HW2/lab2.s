@@ -31,42 +31,28 @@ main:
         sw t0, 8(sp)
         la s10, array_bf16      # global array_bf16 address(s10)        
         addi s11, x0, 3         # data number(s11) -> three groups data
-        la s9, exp_mask         # global exp(s9)
-        la s8, man_mask         # global man(s8)
-        la s6, bf16_mask        # global bf16(s6)
-        lw s9, 0(s9)
-        lw s8, 0(s8)
-        lw s6, 0(s6)
-        add s7, x0, sp
+        li t5, 0x7F800000       #exp_mask
+        li t6, 0x007FFFFF       #man_mask
+        li s6, 0xFFFF0000       #bf16_mask
+        li s7, 0x7FFFFFFF #abs_mask
 main_for:
         la a0, bf16_string
         addi a7, x0, 4
         ecall         
         addi a3, x0, 7          # array size(a3)
-        lw a1, 0(s7)            # array_data pointer(a1)
+        lw a1, 0(sp)            # array_data pointer(a1)
         mv a2, s10              # array_bf16 pointer(a2)
-        jal ra, fp32_to_bf16_findmax
-               
-        addi s11, s11, -1
-        addi s7, s7, 4
-        bne s11, x0, main_for
-        # Exit program
-        li a7, 10
-        ecall 
+
         
 fp32_to_bf16_findmax:
 # array_data pointer(a1), array_bf16 pointer(a2), array size(a3)
-        # prologue
-        addi sp, sp, -8
-        sw s0, 0(sp)
-        sw s1, 4(sp)
-        
+    
 # array loop
 for1:
         lw a5, 0(a1)  # x(a5)
         # fp32_to_bf16
-        and t0, a5, s9  # x exp(t0)
-        and t1, a5, s8  # x man(t1)
+        and t0, a5, t5  # x exp(t0)
+        and t1, a5, t6  # x man(t1)
         # if zero        
         bne t0, x0, else
         # exp is zero
@@ -74,7 +60,7 @@ for1:
         j finish_bf16        
 else: 
         # if infinity or NaN
-        beq t0, s9, finish_bf16                              
+        beq t0, t5, finish_bf16                              
         # round        
         # r = x.man shift right 8 bit
         # x+r = x.man + x.man>>8
@@ -89,16 +75,15 @@ else:
         add t0, t0, t3  # exp+1
         srli t1 ,t1, 1  # man alignment
 no_carry:
-        and t0, t0, s9  # mask exp(t0)
-        and t1, t1, s8  # mask man(t1)
+        and t0, t0, t5  # mask exp(t0)
+        and t1, t1, t6  # mask man(t1)
         or t2, t0, t1  # combine exp & man
         li t3, 0x80000000  # sign mask
         and t3, a5, t3  # x sign
         or a5, t3, t2  # bfloat16(a5) 
-        and a5, a5, s6
+        and a5, a5, s6 #s6 -> bf16_mask
 finish_bf16:
         sw a5, 0(a2)
-        
         mv a0, a5
         addi a7, x0, 34
         ecall
@@ -107,22 +92,16 @@ finish_bf16:
         ecall
         
         slti t3, a3, 7  # (a3==7) t3=0, (a3<7) t3=1
+        and s8, a5, s7  # abs bf16 -> s8
         bne t3, x0, compare
         # saved first max
         j max_change
         
 compare:
-        # compare exp
-        blt s0, t0, max_change 
-        blt t0, s0, max_not_change
-        
-        # compare man       
-        blt s1, t1, max_change
-        blt t1, s1, max_not_change
+        blt s8, s0, max_not_change
 
 max_change:
-        mv s0, t0  # max exp(s0)
-        mv s1, t1  # max man(s1)         
+        mv s0, s8  # max bf16(s0) 
         mv a4, a5  # max bf16(a4)
 max_not_change:               
         addi a3, a3, -1
@@ -131,8 +110,7 @@ max_not_change:
         bne a3, x0, for1
         
         # Absolute
-        li t2, 0x7fffffff
-        and a4, a4, t2
+        and a4, a4, s7
         
         #print
         la a0, max_string
@@ -141,9 +119,14 @@ max_not_change:
         mv a0, a4
         addi a7, x0, 34
         ecall
-     
-        # epilogue
-        lw s0, 0(sp)
-        lw s1, 4(sp)
-        addi sp, sp, 8
-        jr ra
+
+        and s0, x0, s0
+        and s1, x0, s1
+
+        addi s11, s11, -1
+        addi sp, sp, 4
+        and s8, x0, s8
+        bne s11, x0, main_for
+Exit:
+        li a7, 10
+        ecall 
