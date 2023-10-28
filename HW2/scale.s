@@ -9,7 +9,7 @@ quant_bf16_to_int8:
         li s2, 0x7F    #127 to hex
         
         and t0, a4, t6 #max_man->t0 maxbf16->a4
-        srli t0, t0, 15
+        srli t0, t0, 16
         srli t1, a4, 23 #max_exp
         addi t1, t1, -127 #Denominator-> power of exp <- t1
         li t4, 7
