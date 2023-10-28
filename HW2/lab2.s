@@ -14,8 +14,7 @@ next_line: .string "\n"
 max_string: .string "maximum number is "
 bf16_string: .string "\nbfloat16 number is \n"
 scale_num: .string "\nscale is "
-int8_transfor_to_bf16: .string "\ntransfor to bf16 =>"
-
+transform_to_bf16_is: .string "\ntransform to bf16 is:"
 .text
 main:
         # push data    
@@ -127,23 +126,23 @@ scale:
         sw s3, 4(sp)
         sw s4, 8(sp)
         sw s5, 12(sp)
-        li s2, 0x7F    # 127 to hex
-        li s3, 1       # add to fraction head (1.fraction)
+        li s2, 0x7F            # 127 to hex
+        li s3, 1               # add to fraction head (1.fraction)
         
-        and t0, a4, t6 # max_man->t0   maxbf16->a4   man_mask=0x007FFFFF->t6
-        srli t0, t0, 16 # bf16_man t0=t0>>15
-        srli t1, a4, 23 # max_exp
-        addi t1, t1, -127 # Denominator-> power of 2 <- t1
-        li t4, 7     # man has 7bits
+        and t0, a4, t6         # max_man->t0   maxbf16->a4   man_mask=0x007FFFFF->t6
+        srli t0, t0, 16        # bf16_man t0=t0>>15
+        srli t1, a4, 23        # max_exp
+        addi t1, t1, -127      # Denominator-> power of 2 <- t1
+        li t4, 7               # man has 7bits
         sub t3, t4, t1 
-        srl t0, t0, t3 # mean t0 >> (7-(power of 2)) 
+        srl t0, t0, t3         # mean t0 >> (7-(power of 2)) 
         
-        sll s3, s3, t1 # s3=(1<<t1)
-        or t0, s3, t0   # 10^(t1) + fraction
+        sll s3, s3, t1         # s3=(1<<t1)
+        or t0, s3, t0          # 10^(t1) + fraction
         li a6, 0 
 scale_loop:
         add s4, s4, t0
-        addi a6, a6, 1 # count scale
+        addi a6, a6, 1         # count scale
         bge s2, s4, scale_loop
         lw s2, 0(sp)
         lw s3, 4(sp)
@@ -158,7 +157,7 @@ scale_loop:
         li a7, 1
         ecall
         
-int_to_floatpoint:
+int_to_fp:
         addi sp, sp, -16
         sw s2, 0(sp)
         sw s3, 4(sp)
@@ -173,28 +172,26 @@ loop2:
         addi t0, t0, 1 
         blt x0, a6, loop2
 ###end loop2
-        addi t0, t0, -1 # count shift right num
+        addi t0, t0, -1        # count shift right num
         
-        addi s3, t0, 127 # exp_num
+        addi s3, t0, 127       # exp_num
         # Why not +127? Because the shift count is one extra.
-        slli s3, s3, 23 # exp in bf16 -> s3
+        slli s3, s3, 23        # exp in bf16 -> s3
         
         li t1, 0xFFFFFFFF
         li t2, 32
         sub t3, t2, t0
         srl t1, t1, t3
-        and s4, s2, t1 # frac_num in bf16
+        and s4, s2, t1         # frac_num in bf16
         li t1, 23
-        sub t1, t1, t0 # t1=23-(count shift right num)
-        sll s4, s4, t1 # frac in bf16
-        or s5, s4, s3 # int->bf16 ok
+        sub t1, t1, t0         # t1=23-(count shift right num)
+        sll s4, s4, t1         # frac in bf16
+        or s5, s4, s3          # int->bf16 ok
         mv a6, s5 
         
-        
-        la a0,next_line
+        la a0,transform_to_bf16_is
         li a7,4
         ecall
-        
         mv a0, a6
         li a7, 34
         ecall
@@ -207,7 +204,8 @@ loop2:
 
 Multi_bfloat:
 # decoder function input is a0
-# jal ra,decoder        # load a0(two bloat number in one register) to t0
+# jal ra,decoder        
+# load a0(two bloat number in one register) to t0
 # decoder function output is s5,s6
         addi sp, sp, -16
         sw s2, 0(sp)
@@ -217,7 +215,7 @@ Multi_bfloat:
         
         mv s5, s10
         
-        addi a3, x0, 7 # array size -> 7
+        addi a3, x0, 7        # array size -> 7
 for2: 
         lw a4, 0(s5)
         add t0,a6,x0          # store s5(bfloat 2) to t0
@@ -308,17 +306,17 @@ rm_decimal_of_bf16:
         mv t0, a4
         li t3, 0x80000000
         and t3, t0, t3
-        srli t3, t3, 31 # Detecting positive or negative
-        and t0,t0,s7 # absolution
-        srli t0, t0, 23 # exp->s2
-        addi t0, t0,-127 # power of 2
+        srli t3, t3, 31       # Detecting positive or negative
+        and t0,t0,s7          # absolution
+        srli t0, t0, 23       # exp->s2
+        addi t0, t0,-127      # power of 2
         and t1, t1, t6
         srli t1, t1, 16
-        li t2, 0x80 # 1000 0000
+        li t2, 0x80           # 1000 0000
         or t1, t1, t2
         li t2, 7
-        sub t2, t2, t0 # how many bits do you right shift
-        srl t1, t1, t2 # ANS
+        sub t2, t2, t0        # how many bits do you right shift
+        srl t1, t1, t2        # ANS
         li t2, 1
         bne t3, t2, printINT8
 Add_negative_sign:
