@@ -10,11 +10,6 @@ array3: .word 0x40490fdb, 0x3dfcd6e9, 0x3f9e0652, 0x35a5167a, 0x322bcc77, 0x3f80
 
 array_bf16: .word 0, 0, 0, 0, 0, 0, 0
 
-exp_mask: .word 0x7F800000
-man_mask: .word 0x007FFFFF
-sign_exp_mask: .word 0xFF800000
-bf16_mask: .word 0xFFFF0000
-
 next_line: .string "\n"
 max_string: .string "maximum number is "
 bf16_string: .string "\nbfloat16 number is \n"
@@ -136,7 +131,7 @@ scale:
         li s3, 1       # add to fraction head (1.fraction)
         
         and t0, a4, t6 # max_man->t0   maxbf16->a4   man_mask=0x007FFFFF->t6
-        srli t0, t0, 15 # bf16_man t0=t0>>15
+        srli t0, t0, 16 # bf16_man t0=t0>>15
         srli t1, a4, 23 # max_exp
         addi t1, t1, -127 # Denominator-> power of 2 <- t1
         li t4, 7     # man has 7bits
@@ -225,8 +220,8 @@ Multi_bfloat:
         addi a3, x0, 7 # array size -> 7
 for2: 
         lw a4, 0(s5)
-        add t0,a4,x0          # store s5(bfloat 2) to t0
-        add t1,a6,x0          # store s6(bfloat 1) to t1
+        add t0,a6,x0          # store s5(bfloat 2) to t0
+        add t1,a4,x0          # store s6(bfloat 1) to t1
         li s2,0x7F800000      # mask 0x7F800000
         # get exponent to t2,t3
         and t3,t0,s2          # use mask 0x7F800000 to get t0 exponent
@@ -254,7 +249,7 @@ for2:
         and t3,t1,s2          # use mask 0x7F0000 get fraction
         slli t2,t2,9          # shift left let no leading 0
         srli t2,t2,1          # shift right let leading has one 0
-        li s2,80000000        # mask 80000000
+        li s2,0x80000000        # mask 0x80000000
         or t2,t2,s2           # use mask 0x80000000 to add integer
         srli t2,t2,1          # shift right to add space for overflow
 
@@ -306,28 +301,47 @@ Mult_end:
         or t0,t0,t1           # combine t0 and t1 together to get bfloat
 
         add a4,t0,x0          # store bfloat after multiplication to  s3
-        #ret                  # return to main
-        
+### end of function
+  
+#Remove the decimal part of the BF16 to make it an integer.
+rm_decimal_of_bf16:
+        mv t0, a4
+        li t3, 0x80000000
+        and t3, t0, t3
+        srli t3, t3, 31 # Detecting positive or negative
+        and t0,t0,s7 # absolution
+        srli t0, t0, 23 # exp->s2
+        addi t0, t0,-127 # power of 2
+        and t1, t1, t6
+        srli t1, t1, 16
+        li t2, 0x80 # 1000 0000
+        or t1, t1, t2
+        li t2, 7
+        sub t2, t2, t0 # how many bits do you right shift
+        srl t1, t1, t2 # ANS
+        li t2, 1
+        bne t3, t2, printINT8
+Add_negative_sign:
+        add t2, t1, t1
+        sub t1, t1, t2
+printINT8:
         la a0,next_line
         li a7, 4
         ecall
-        mv a0, a4
-        li a7, 2
+        mv a0, t1
+        li a7, 1
         ecall
-        
+# next data
         addi s5, s5, 4
         addi a3, a3, -1
-
         bne a3, x0, for2
-        
+### end of function
         lw s2, 0(sp)
         lw s3, 4(sp)
         lw s4, 8(sp)
         lw s5, 12(sp)
         addi sp, sp, 16
-### end of function
 
-        
 next_array:
         addi s11, s11, -1
         addi sp, sp, 4

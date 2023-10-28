@@ -1,6 +1,8 @@
 .data
-test1: .word 0x42000000
-test2: .word 0x40860000
+test1: .word 0x40b40000
+test2: .word 0x41d00000
+mult: .string "*"
+ans: .string "="
 .text
 Multi_bfloat:
 # decoder function input is a0
@@ -8,6 +10,21 @@ Multi_bfloat:
 # decoder function output is s5,s6
         lw s5,test1
         lw s6,test2
+        
+        
+        mv a0,s5
+        li a7,2
+        ecall
+        la a0, mult
+        li a7, 4
+        ecall
+        mv a0,s6
+        li a7,2
+        ecall
+        la a0, ans
+        li a7, 4
+        ecall
+        
         add t0,s5,x0          # store s5(bfloat 2) to t0
         add t1,s6,x0          # store s6(bfloat 1) to t1
         li t6,0x7F800000      # mask 0x7F800000
@@ -37,7 +54,7 @@ Multi_bfloat:
         and t3,t1,t6          # use mask 0x7F0000 get fraction
         slli t2,t2,9          # shift left let no leading 0
         srli t2,t2,1          # shift right let leading has one 0
-        li t6,80000000        # mask 80000000
+        li t6,0x80000000      # mask 80000000
         or t2,t2,t6           # use mask 0x80000000 to add integer
         srli t2,t2,1          # shift right to add space for overflow
 
