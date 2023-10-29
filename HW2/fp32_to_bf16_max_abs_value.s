@@ -29,7 +29,7 @@ main:
         sw t0, 4(sp)
         la t0, array3
         sw t0, 8(sp)
-        la s10, array_bf16      # global array_bf16 address(s10)        
+        la s10, array_bf16      # global array_bf16 address(s10)
         addi s11, x0, 3         # data number(s11) -> three groups data
         li t5, 0x7F800000       #exp_mask
         li t6, 0x007FFFFF       #man_mask
